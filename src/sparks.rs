@@ -2,12 +2,16 @@
 // Copyright (C) 2025 Daniel Thompson
 
 use clap::Args;
-use nuts::{table::Table, Result};
-use std::io;
+use nuts::{table, Result};
+use std::io::{self, Write};
 
 /// Show a table as a sparkline
 #[derive(Args, Debug)]
-pub struct Command {}
+pub struct Command {
+    /// Watch the live results (animate a single line)
+    #[arg(short, long)]
+    watch: bool,
+}
 
 fn sparkline(data: &[f64], max: f64) -> String {
     let mut s = String::new();
@@ -33,17 +37,21 @@ fn sparkline(data: &[f64], max: f64) -> String {
     s
 }
 
-pub fn app(_args: &Command) -> Result<()> {
-    let stdin = io::stdin().lock();
-
-    let tbl = Table::parse(stdin)?;
-
-    for row in tbl.rows.iter() {
+pub fn app(args: &Command) -> Result<()> {
+    let (_headings, rows) = table::rows(io::stdin().lock())?;
+    for row in rows {
         if let Some(vals) = row.as_percent() {
-            print!("{}", sparkline(&vals, 100.0));
+            if args.watch {
+                print!("    {}\r", sparkline(&vals, 100.0));
+                io::stdout().flush()?;
+            } else {
+                println!("{}", sparkline(&vals, 100.0));
+            }
         }
     }
-    println!("");
+    if args.watch {
+        println!("");
+    }
 
     Ok(())
 }
