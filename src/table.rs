@@ -2,7 +2,10 @@
 // Copyright (C) 2025 Daniel Thompson
 
 use crate::{Error, Result};
-use std::io::{BufRead, Lines};
+use std::{
+    fmt::{self, Display},
+    io::{BufRead, Lines},
+};
 
 #[derive(Clone, Debug)]
 pub struct Table {
@@ -25,16 +28,16 @@ impl Table {
     }
 
     pub fn add_column(&mut self, title: String, def: &str) -> &mut Self {
-        self.headings.0.push(title);
+        self.headings.0.push(title.into());
         for row in self.rows.iter_mut() {
-            row.0.push(def.to_string());
+            row.0.push(def.into());
         }
         self
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct Row(Vec<String>);
+pub struct Row(Vec<Cell>);
 
 impl Row {
     pub fn new() -> Self {
@@ -42,20 +45,20 @@ impl Row {
     }
 
     pub fn is_percent(&self) -> bool {
-        self.0.iter().map(|c| c.ends_with("%")).all(|b| b)
+        self.0.iter().all(|c| matches!(c, Cell::Percent(_)))
     }
 
     pub fn as_percent(&self) -> Option<Vec<f64>> {
-        if !self.is_percent() {
-            return None;
-        }
-
-        Some(
-            self.0
-                .iter()
-                .map(|c| c.trim_end_matches("%").parse::<f64>().unwrap_or(0.0))
-                .collect(),
-        )
+        self.0
+            .iter()
+            .map(|c| {
+                if let Cell::Percent(p) = c {
+                    Some(*p)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
@@ -84,16 +87,16 @@ impl<T: BufRead> Iterator for Rows<T> {
             }
 
             if width == Some(0) {
-                row.0.push(field.trim().to_string());
+                row.0.push(field.trim().into());
                 field = String::new();
                 width = width_it.next().map(|w| w.clone());
             }
         }
         if field.len() != 0 {
-            row.0.push(field.trim().to_string());
+            row.0.push(field.trim().into());
         }
         while row.0.len() < (self.widths.len() + 1) {
-            row.0.push("".to_string());
+            row.0.push("".into());
         }
 
         Some(row)
@@ -118,7 +121,7 @@ pub fn rows<T: BufRead>(f: T) -> Result<(Row, Rows<T>)> {
     let mut width = 0;
     for c in first_line.chars() {
         if c == '|' {
-            headings.0.push(field.trim().to_string());
+            headings.0.push(field.trim().into());
             field = String::new();
             rows.widths.push(width);
             width = 1;
@@ -130,8 +133,81 @@ pub fn rows<T: BufRead>(f: T) -> Result<(Row, Rows<T>)> {
         }
     }
     if field.len() != 0 {
-        headings.0.push(field.trim().to_string());
+        headings.0.push(field.trim().into());
     }
 
     Ok((headings, rows))
+}
+
+#[derive(Clone, Debug)]
+pub enum Cell {
+    Empty,
+    Float(f64),
+    Integer(i64),
+    Percent(f64),
+    String(String),
+}
+
+impl Cell {
+    pub fn new() -> Self {
+        Self::Empty
+    }
+
+    pub fn ends_with(&self, needle: &str) -> bool {
+        if let Self::String(s) = self {
+            s.ends_with(needle)
+        } else {
+            false
+        }
+    }
+}
+
+impl Display for Cell {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => write!(f, ""),
+            Self::Float(v) => write!(f, "{v}"),
+            Self::Integer(v) => write!(f, "{v}"),
+            Self::Percent(v) => write!(f, "{v}%"),
+            Self::String(s) => write!(f, "{s}"),
+        }
+    }
+}
+
+fn parse_cell_from_str(value: &str) -> Option<Cell> {
+    if value == "" {
+        Some(Cell::Empty)
+    } else if value.ends_with("%")
+        && value
+            .chars()
+            .rev()
+            .skip(1)
+            .all(|c| c.is_ascii_digit() || c == '.')
+    {
+        Some(Cell::Percent(
+            value.trim_end_matches("%").parse().unwrap_or(0.0),
+        ))
+    } else {
+        None
+    }
+}
+
+impl From<String> for Cell {
+    fn from(value: String) -> Self {
+        if let Some(cell) = parse_cell_from_str(&value) {
+            cell
+        } else {
+            Cell::String(value)
+        }
+    }
+}
+
+impl From<&str> for Cell {
+    fn from(value: &str) -> Self {
+        if let Some(c) = parse_cell_from_str(value) {
+            c
+        } else {
+            Self::String(value.to_string())
+        }
+    }
 }
