@@ -11,6 +11,23 @@ struct Cli {
     command: Commands,
 }
 
+impl From<Multicall> for Cli {
+    fn from(mc: Multicall) -> Self {
+        Cli {
+            command: mc.command,
+        }
+    }
+}
+
+#[derive(Debug, Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(propagate_version = true)]
+#[clap(multicall = true)]
+struct Multicall {
+    #[command(subcommand)]
+    command: Commands,
+}
+
 mod cpu;
 mod sleep;
 mod sparks;
@@ -24,7 +41,13 @@ enum Commands {
 }
 
 fn main() {
-    let res = match Cli::parse().command {
+    let cli = if let Ok(mc) = Multicall::try_parse() {
+        mc.into()
+    } else {
+        Cli::parse()
+    };
+
+    let res = match cli.command {
         Commands::Cpu(args) => cpu::app(&args),
         Commands::Sleep(args) => sleep::app(&args),
         Commands::Sparks(args) => sparks::app(&args),
