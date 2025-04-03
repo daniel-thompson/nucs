@@ -2,13 +2,13 @@
 // Copyright (C) 2025 Daniel Thompson
 
 use clap::Args;
-use nuts::Result;
+use nucs::Result;
 use std::cmp::min;
 use std::io::Write;
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// CPU utilization summary
+/// Delay for the specified time (with countdown)
 #[derive(Args, Debug)]
 pub struct Command {
     duration: f64,

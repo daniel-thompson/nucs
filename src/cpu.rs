@@ -2,7 +2,7 @@
 // Copyright (C) 2025 Daniel Thompson
 
 use clap::Args;
-use nuts::{proc, Result};
+use nucs::{proc, Result};
 use std::thread;
 use std::time::Duration;
 

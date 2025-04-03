@@ -2,7 +2,7 @@
 // Copyright (C) 2025 Daniel Thompson
 
 use clap::Args;
-use nuts::{table, Result};
+use nucs::{table, Result};
 use std::io::{self, Write};
 
 /// Show a table as a sparkline

@@ -12,20 +12,21 @@ struct Cli {
 }
 
 mod cpu;
-mod peels;
+mod sleep;
 mod sparks;
 
 #[derive(Debug, Subcommand)]
 enum Commands {
     Cpu(cpu::Command),
-    Peels(peels::Command),
+    #[clap(alias = "peels")]
+    Sleep(sleep::Command),
     Sparks(sparks::Command),
 }
 
 fn main() {
     let res = match Cli::parse().command {
         Commands::Cpu(args) => cpu::app(&args),
-        Commands::Peels(args) => peels::app(&args),
+        Commands::Sleep(args) => sleep::app(&args),
         Commands::Sparks(args) => sparks::app(&args),
     };
 
